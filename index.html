@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>教習所入校まであとどれくらい？</title>
+<style>
+:root{
+  --bg:#ffffff; --fg:#111827; --sub:#4b5563; --card:#f3f4f6; --accent:#2563eb; --line:#d1d5db;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){--bg:#0f172a;--fg:#f8fafc;--sub:#cbd5e1;--card:#1e293b;--accent:#60a5fa;--line:#475569;}
+}
+:root[data-theme="dark"]{--bg:#0f172a;--fg:#f8fafc;--sub:#cbd5e1;--card:#1e293b;--accent:#60a5fa;--line:#475569;}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font-family:"Hiragino Sans","Yu Gothic",Meiryo,system-ui,sans-serif;}
+main{max-width:760px;margin:0 auto;padding:24px 16px 48px;}
+h1{font-size:clamp(24px,6vw,36px);margin:0 0 20px;text-align:center}
+label{display:block;font-size:clamp(18px,4.5vw,24px);font-weight:700;margin-bottom:8px}
+input[type=date]{width:100%;font-size:clamp(24px,6vw,36px);padding:12px;border:2px solid var(--line);
+  border-radius:12px;background:var(--card);color:var(--fg);font-family:inherit}
+.card{background:var(--card);border-radius:16px;padding:20px;margin-top:20px;text-align:center}
+.small{font-size:clamp(16px,4vw,22px);color:var(--sub);margin:0 0 8px}
+.date{font-size:clamp(26px,7vw,44px);font-weight:800;color:var(--accent);margin:0}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:8px}
+.grid div{background:var(--bg);border-radius:12px;padding:12px 4px}
+.num{display:block;font-size:clamp(34px,10vw,64px);font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1}
+.unit{font-size:clamp(14px,3.8vw,20px);color:var(--sub)}
+.total{font-size:clamp(28px,8vw,52px);font-weight:800;font-variant-numeric:tabular-nums;word-break:break-all}
+.msg{font-size:clamp(26px,7vw,44px);font-weight:800;color:var(--accent)}
+.note{font-size:15px;color:var(--sub);margin-top:24px;line-height:1.7}
+.err{color:#dc2626;font-size:18px;text-align:center;margin-top:12px}
+</style>
+</head>
+<body>
+<main>
+  <h1>教習所に入校できるまで</h1>
+  <label for="birth">生年月日を入力</label>
+  <input type="date" id="birth" min="1900-01-01">
+  <div id="err" class="err"></div>
+
+  <div id="result" hidden>
+    <div class="card">
+      <p class="small">最短で入校できる日</p>
+      <p class="date" id="target"></p>
+    </div>
+    <div class="card" id="countCard">
+      <p class="small">あと</p>
+      <div class="grid">
+        <div><span class="num" id="y">0</span><span class="unit">年</span></div>
+        <div><span class="num" id="mo">0</span><span class="unit">か月</span></div>
+        <div><span class="num" id="d">0</span><span class="unit">日</span></div>
+        <div><span class="num" id="h">0</span><span class="unit">時間</span></div>
+        <div><span class="num" id="mi">0</span><span class="unit">分</span></div>
+        <div><span class="num" id="s">0</span><span class="unit">秒</span></div>
+      </div>
+    </div>
+    <div class="card" id="secCard">
+      <p class="small">秒だけで表すと</p>
+      <div><span class="total" id="total">0</span> <span class="unit">秒</span></div>
+    </div>
+  </div>
+
+  <p class="note">
+    ※普通自動車免許(第一種)で、多くの教習所が「18歳の誕生日の90日前」から入校を受け付けている前提で計算しています(日付は0:00基準)。
+    教習所によって異なる場合があるので、正確な日は入校予定の教習所にご確認ください。
+  </p>
+</main>
+
+<script>
+(function(){
+  var input=document.getElementById('birth');
+  var result=document.getElementById('result');
+  var err=document.getElementById('err');
+  var target=null;
+  var WD=['日','月','火','水','木','金','土'];
+
+  function addMonths(d,n){
+    var r=new Date(d.getTime()), day=r.getDate();
+    r.setDate(1); r.setMonth(r.getMonth()+n);
+    var last=new Date(r.getFullYear(),r.getMonth()+1,0).getDate();
+    r.setDate(Math.min(day,last));
+    return r;
+  }
+  function pad(n){return String(n)}
+
+  function calcTarget(v){
+    var p=v.split('-').map(Number);
+    if(p.length!==3||p.some(isNaN)) return null;
+    var t=new Date(p[0]+18,p[1]-1,p[2],0,0,0,0);
+    t.setDate(t.getDate()-90);
+    return t;
+  }
+
+  function tick(){
+    if(!target) return;
+    var now=new Date();
+    var ms=target.getTime()-now.getTime();
+    var cc=document.getElementById('countCard'), sc=document.getElementById('secCard');
+    if(ms<=0){
+      cc.innerHTML='<p class="msg">🎉 もう入校できます!</p>';
+      sc.hidden=true;
+      return;
+    }
+    if(cc.querySelector('.msg')){ location.reload(); return; }
+    var m=(target.getFullYear()-now.getFullYear())*12+(target.getMonth()-now.getMonth());
+    var base=addMonths(now,m);
+    if(base>target){m--;base=addMonths(now,m);}
+    var rem=target.getTime()-base.getTime();
+    var days=Math.floor(rem/86400000); rem-=days*86400000;
+    var hh=Math.floor(rem/3600000); rem-=hh*3600000;
+    var mm=Math.floor(rem/60000); rem-=mm*60000;
+    var ss=Math.floor(rem/1000);
+    document.getElementById('y').textContent=Math.floor(m/12);
+    document.getElementById('mo').textContent=m%12;
+    document.getElementById('d').textContent=days;
+    document.getElementById('h').textContent=hh;
+    document.getElementById('mi').textContent=mm;
+    document.getElementById('s').textContent=ss;
+    document.getElementById('total').textContent=Math.ceil(ms/1000).toLocaleString('ja-JP');
+  }
+
+  function update(){
+    err.textContent='';
+    var v=input.value;
+    if(!v){result.hidden=true;target=null;return;}
+    var t=calcTarget(v);
+    if(!t||t>new Date(2200,0,1)){result.hidden=true;target=null;err.textContent='正しい日付を入力してください';return;}
+    target=t;
+    try{localStorage.setItem('kyoshujo_birth',v);}catch(e){}
+    document.getElementById('target').textContent=
+      t.getFullYear()+'年'+(t.getMonth()+1)+'月'+t.getDate()+'日('+WD[t.getDay()]+')';
+    result.hidden=false;
+    tick();
+  }
+
+  input.addEventListener('input',update);
+  input.addEventListener('change',update);
+  try{var s=localStorage.getItem('kyoshujo_birth'); if(s){input.value=s;}}catch(e){}
+  update();
+  setInterval(tick,100);
+})();
+</script>
+</body>
+</html>
